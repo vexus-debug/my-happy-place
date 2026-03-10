@@ -1,12 +1,14 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { usePatternScanner } from '@/hooks/usePatternScanner';
+import { useSharedScanner } from '@/contexts/ScannerContext';
 
 type PatternScannerContextType = ReturnType<typeof usePatternScanner>;
 
 const PatternScannerContext = createContext<PatternScannerContextType | null>(null);
 
 export function PatternScannerProvider({ children }: { children: ReactNode }) {
-  const scanner = usePatternScanner();
+  const { assets } = useSharedScanner();
+  const scanner = usePatternScanner(assets);
   return (
     <PatternScannerContext.Provider value={scanner}>
       {children}
