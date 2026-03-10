@@ -47,7 +47,7 @@ export function useScanner(settings: ScannerSettings, watchlist: WatchlistItem[]
         // Only update if server data is newer than what we have
         if (serverTime > serverScanTime) {
           const newAssets = new Map<string, AssetTrend>();
-          for (const asset of trendsRow.data as AssetTrend[]) {
+          for (const asset of trendsRow.data as unknown as AssetTrend[]) {
             newAssets.set(asset.symbol, asset);
           }
           setAssets(newAssets);
