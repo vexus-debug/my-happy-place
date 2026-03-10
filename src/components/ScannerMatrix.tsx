@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import type { AssetTrend, Timeframe } from '@/types/scanner';
 import { ALL_TIMEFRAMES, TIMEFRAME_LABELS } from '@/types/scanner';
+import type { ConfirmedTrend, IndicatorDetail } from '@/lib/indicators';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Search, Star } from 'lucide-react';
+import { Search, Star, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface ScannerMatrixProps {
   assets: AssetTrend[];
@@ -15,51 +16,102 @@ interface ScannerMatrixProps {
 
 export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist, isWatched }: ScannerMatrixProps) {
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'strength' | 'change' | 'volume'>('strength');
+  const [sortBy, setSortBy] = useState<'confirmations' | 'change' | 'volume'>('confirmations');
+  const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+  const [filterTf, setFilterTf] = useState<Timeframe | 'all'>('all');
 
   const filtered = useMemo(() => {
     let result = assets.filter((a) =>
       a.symbol.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Filter to only assets with confirmed trends
+    if (filterTf !== 'all') {
+      result = result.filter(a => a.signals[filterTf]);
+    } else {
+      result = result.filter(a => Object.keys(a.signals).length > 0);
+    }
+
     result.sort((a, b) => {
-      if (sortBy === 'strength') {
-        const scoreA = Math.max(...Object.values(a.signals).map((s) => Math.abs(s?.score ?? 0)), 0);
-        const scoreB = Math.max(...Object.values(b.signals).map((s) => Math.abs(s?.score ?? 0)), 0);
-        return scoreB - scoreA;
+      if (sortBy === 'confirmations') {
+        const getMaxConf = (asset: AssetTrend) => {
+          const sigs = Object.values(asset.signals) as ConfirmedTrend[];
+          return Math.max(...sigs.map(s => s?.confirmations ?? 0), 0);
+        };
+        return getMaxConf(b) - getMaxConf(a);
       }
       if (sortBy === 'change') return Math.abs(b.change24h) - Math.abs(a.change24h);
       return b.volume24h - a.volume24h;
     });
 
     return result;
-  }, [assets, search, sortBy]);
+  }, [assets, search, sortBy, filterTf]);
+
+  const trendCount = filtered.length;
+  const bullCount = filtered.filter(a => {
+    const sigs = Object.values(a.signals);
+    return sigs.some(s => s?.direction === 'bull');
+  }).length;
+  const bearCount = trendCount - bullCount;
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-7 bg-secondary pl-7 text-xs"
-            placeholder="Search symbols…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="border-b border-border px-3 py-2 space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-7 bg-secondary pl-7 text-xs"
+              placeholder="Search symbols…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-1">
+            {(['confirmations', 'change', 'volume'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSortBy(s)}
+                className={`rounded px-2 py-0.5 text-[10px] uppercase transition-colors ${
+                  sortBy === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {s === 'confirmations' ? 'conf' : s}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-1">
-          {(['strength', 'change', 'volume'] as const).map((s) => (
+
+        {/* Timeframe filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] uppercase text-muted-foreground mr-1">TF:</span>
+          <button
+            onClick={() => setFilterTf('all')}
+            className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${
+              filterTf === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            ALL
+          </button>
+          {ALL_TIMEFRAMES.map(tf => (
             <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`rounded px-2 py-0.5 text-[10px] uppercase transition-colors ${
-                sortBy === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              key={tf}
+              onClick={() => setFilterTf(tf)}
+              className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${
+                filterTf === tf ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {s}
+              {TIMEFRAME_LABELS[tf]}
             </button>
           ))}
+        </div>
+
+        {/* Stats bar */}
+        <div className="flex items-center gap-3 text-[10px]">
+          <span className="text-muted-foreground">{trendCount} confirmed trends</span>
+          <span className="trend-bull flex items-center gap-0.5"><TrendingUp className="h-2.5 w-2.5" />{bullCount}</span>
+          <span className="trend-bear flex items-center gap-0.5"><TrendingDown className="h-2.5 w-2.5" />{bearCount}</span>
         </div>
       </div>
 
@@ -74,111 +126,160 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
             <div className="h-0.5 rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{
-                  width: scanProgress.total > 0 ? `${(scanProgress.current / scanProgress.total) * 100}%` : '0%',
-                }}
+                style={{ width: scanProgress.total > 0 ? `${(scanProgress.current / scanProgress.total) * 100}%` : '0%' }}
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* Table */}
+      {/* Trend Cards */}
       <ScrollArea className="flex-1">
-        <table className="w-full text-[10px]">
-          <thead className="sticky top-0 bg-background">
-            <tr className="border-b border-border">
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Symbol</th>
-              <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">Price</th>
-              <th className="px-2 py-1.5 text-right font-medium text-muted-foreground">24h%</th>
-              {ALL_TIMEFRAMES.map((tf) => (
-                <th key={tf} className="px-1 py-1.5 text-center font-medium text-muted-foreground">
-                  {TIMEFRAME_LABELS[tf]}
-                </th>
-              ))}
-              <th className="w-6" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((asset) => (
-              <AssetRow
-                key={asset.symbol}
-                asset={asset}
-                watched={isWatched(asset.symbol)}
-                onWatch={() => onAddToWatchlist(asset.symbol)}
-              />
-            ))}
-            {filtered.length === 0 && !scanning && (
-              <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  {assets.length === 0 ? 'Starting scan…' : 'No matches found'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <div className="p-2 space-y-1.5">
+          {filtered.map((asset) => (
+            <TrendCard
+              key={asset.symbol}
+              asset={asset}
+              filterTf={filterTf}
+              expanded={expandedSymbol === asset.symbol}
+              onToggle={() => setExpandedSymbol(expandedSymbol === asset.symbol ? null : asset.symbol)}
+              watched={isWatched(asset.symbol)}
+              onWatch={() => onAddToWatchlist(asset.symbol)}
+            />
+          ))}
+          {filtered.length === 0 && !scanning && (
+            <div className="px-4 py-12 text-center text-xs text-muted-foreground">
+              {assets.length === 0 ? 'Starting scan… waiting for data' : 'No confirmed trends found'}
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   );
 }
 
-function AssetRow({
-  asset,
-  watched,
-  onWatch,
+function TrendCard({
+  asset, filterTf, expanded, onToggle, watched, onWatch,
 }: {
   asset: AssetTrend;
+  filterTf: Timeframe | 'all';
+  expanded: boolean;
+  onToggle: () => void;
   watched: boolean;
   onWatch: () => void;
 }) {
-  const changeColor = asset.change24h >= 0 ? 'text-trend-bull' : 'text-trend-bear';
+  // Get the best signal to display
+  const relevantSignals = filterTf === 'all'
+    ? Object.entries(asset.signals) as [Timeframe, ConfirmedTrend][]
+    : asset.signals[filterTf] ? [[filterTf, asset.signals[filterTf]]] as [Timeframe, ConfirmedTrend][] : [];
+
+  const bestSignal = relevantSignals.reduce<{ tf: Timeframe; sig: ConfirmedTrend } | null>((best, [tf, sig]) => {
+    if (!sig) return best;
+    const ct = sig as ConfirmedTrend;
+    if (!best || (ct.confirmations ?? 0) > (best.sig.confirmations ?? 0)) return { tf, sig: ct };
+    return best;
+  }, null);
+
+  if (!bestSignal) return null;
+
+  const { tf, sig } = bestSignal;
+  const isBull = sig.direction === 'bull';
+  const changeColor = asset.change24h >= 0 ? 'trend-bull' : 'trend-bear';
+
+  const ConfIcon = sig.strength === 'strong' ? ShieldCheck : sig.strength === 'moderate' ? Shield : ShieldAlert;
 
   return (
-    <tr className="border-b border-border/50 transition-colors hover:bg-secondary/30">
-      <td className="px-2 py-1 font-semibold">{asset.symbol.replace('USDT', '')}</td>
-      <td className="px-2 py-1 text-right tabular-nums">
-        ${asset.price < 1 ? asset.price.toPrecision(4) : asset.price.toFixed(2)}
-      </td>
-      <td className={`px-2 py-1 text-right tabular-nums ${changeColor}`}>
-        {asset.change24h >= 0 ? '+' : ''}
-        {asset.change24h.toFixed(2)}%
-      </td>
-      {ALL_TIMEFRAMES.map((tf) => (
-        <TrendCell key={tf} signal={asset.signals[tf]} />
-      ))}
-      <td className="px-1 py-1">
-        <button
-          onClick={onWatch}
-          className={`transition-colors ${watched ? 'text-accent' : 'text-muted-foreground/30 hover:text-muted-foreground'}`}
-          title={watched ? 'In watchlist' : 'Add to watchlist'}
-        >
-          <Star className="h-3 w-3" fill={watched ? 'currentColor' : 'none'} />
-        </button>
-      </td>
-    </tr>
-  );
-}
+    <div className={`rounded border transition-colors ${
+      isBull ? 'border-hsl(var(--trend-bull)/.2) bg-hsl(var(--trend-bull)/.03)' : 'border-hsl(var(--trend-bear)/.2) bg-hsl(var(--trend-bear)/.03)'
+    }`}
+    style={{
+      borderColor: isBull ? 'hsl(142 72% 45% / 0.2)' : 'hsl(0 72% 50% / 0.2)',
+      backgroundColor: isBull ? 'hsl(142 72% 45% / 0.03)' : 'hsl(0 72% 50% / 0.03)',
+    }}
+    >
+      {/* Summary row */}
+      <button onClick={onToggle} className="flex w-full items-center gap-2 px-3 py-2 text-left">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {isBull ? <TrendingUp className="h-3.5 w-3.5 trend-bull flex-shrink-0" /> : <TrendingDown className="h-3.5 w-3.5 trend-bear flex-shrink-0" />}
+          <span className="text-xs font-bold truncate">{asset.symbol.replace('USDT', '')}</span>
+          <span className="rounded bg-secondary px-1 py-0.5 text-[9px] text-muted-foreground">{TIMEFRAME_LABELS[tf]}</span>
+        </div>
 
-function TrendCell({ signal }: { signal?: AssetTrend['signals'][Timeframe] }) {
-  if (!signal || !signal.direction) {
-    return <td className="px-1 py-1 text-center">
-      <span className="inline-block h-2 w-2 rounded-sm bg-muted" />
-    </td>;
-  }
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] tabular-nums text-foreground">
+            ${asset.price < 1 ? asset.price.toPrecision(4) : asset.price.toFixed(2)}
+          </span>
+          <span className={`text-[10px] tabular-nums ${changeColor}`}>
+            {asset.change24h >= 0 ? '+' : ''}{asset.change24h.toFixed(2)}%
+          </span>
+          {/* Confirmation badge */}
+          <div className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+            sig.strength === 'strong' ? 'bg-primary/20 text-primary' :
+            sig.strength === 'moderate' ? 'bg-accent/20 text-accent' :
+            'bg-muted text-muted-foreground'
+          }`}>
+            <ConfIcon className="h-2.5 w-2.5" />
+            {(sig as ConfirmedTrend).confirmations ?? '?'}/{(sig as ConfirmedTrend).totalChecks ?? '?'}
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onWatch(); }}
+            className={`transition-colors ${watched ? 'text-accent' : 'text-muted-foreground/30 hover:text-muted-foreground'}`}
+          >
+            <Star className="h-3 w-3" fill={watched ? 'currentColor' : 'none'} />
+          </button>
+          {expanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+        </div>
+      </button>
 
-  const isBull = signal.direction === 'bull';
-  const opacity =
-    signal.strength === 'strong' ? 'opacity-100' :
-    signal.strength === 'moderate' ? 'opacity-70' : 'opacity-40';
+      {/* Expanded indicator details */}
+      {expanded && (
+        <div className="border-t border-border/50 px-3 py-2 space-y-2">
+          {/* All timeframe signals overview */}
+          {filterTf === 'all' && relevantSignals.length > 1 && (
+            <div className="flex flex-wrap gap-1 pb-1">
+              {relevantSignals.map(([t, s]) => (
+                <span key={t} className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
+                  s.direction === 'bull' ? 'bg-primary/15 trend-bull' : 'bg-destructive/15 trend-bear'
+                }`}>
+                  {TIMEFRAME_LABELS[t]}: {s.direction === 'bull' ? '↑' : '↓'} {(s as ConfirmedTrend).confirmations}/{(s as ConfirmedTrend).totalChecks}
+                </span>
+              ))}
+            </div>
+          )}
 
-  return (
-    <td className="px-1 py-1 text-center">
-      <span
-        className={`inline-block h-2 w-2 rounded-sm ${opacity} ${
-          isBull ? 'bg-trend-bull glow-green' : 'bg-trend-bear glow-red'
-        }`}
-        title={`${signal.strength} ${signal.direction} (ADX: ${signal.adx.toFixed(1)}, Score: ${signal.score})`}
-      />
-    </td>
+          {/* Indicator breakdown */}
+          <div className="space-y-0.5">
+            <div className="text-[9px] uppercase text-muted-foreground font-medium mb-1">
+              Indicator Breakdown ({TIMEFRAME_LABELS[tf]})
+            </div>
+            {((sig as ConfirmedTrend).indicators ?? []).map((ind: IndicatorDetail) => (
+              <div key={ind.name} className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    ind.signal === 'bull' ? 'bg-trend-bull' :
+                    ind.signal === 'bear' ? 'bg-trend-bear' :
+                    'bg-muted-foreground'
+                  }`} />
+                  <span className="text-foreground font-medium">{ind.name}</span>
+                </div>
+                <span className={`tabular-nums ${
+                  ind.confirmed ? (ind.signal === 'bull' ? 'trend-bull' : ind.signal === 'bear' ? 'trend-bear' : 'text-muted-foreground') : 'text-muted-foreground'
+                }`}>
+                  {ind.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick stats */}
+          <div className="flex gap-3 pt-1 border-t border-border/30 text-[9px] text-muted-foreground">
+            <span>RSI: {(sig as ConfirmedTrend).rsi?.toFixed(0) ?? '—'}</span>
+            <span>ADX: {sig.adx.toFixed(0)}</span>
+            <span>Vol: {sig.volumeRatio.toFixed(1)}x</span>
+            <span>Score: {sig.score}</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
