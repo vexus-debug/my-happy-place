@@ -498,7 +498,8 @@ function detectCandlestickPatterns(candles: Candle[]) {
   const isBear = (c: Candle) => c.close < c.open;
   const rng = (c: Candle) => c.high - c.low;
 
-  for (let i = Math.max(2, len - 3); i < len; i++) {
+  // Exclude last (incomplete/still-forming) candle
+  for (let i = Math.max(2, len - 4); i < len - 1; i++) {
     const c = candles[i], p = candles[i - 1], p2 = i >= 2 ? candles[i - 2] : null;
     const r = rng(c), b = bs(c);
     if (b < r * 0.1 && r > 0) patterns.push({ name: "Doji", type: "neutral", significance: "medium", candleIndex: i });
