@@ -32,6 +32,12 @@
     --trend-bear: 0 72% 50%;
     --trend-neutral: 0 0% 25%;
 
+    --confluence-hot: 45 90% 55%;
+    --confluence-warm: 25 80% 55%;
+    --sector-ai: 280 72% 55%;
+    --sector-meme: 45 90% 55%;
+    --sector-gaming: 320 72% 55%;
+
     --border: 0 0% 14%;
     --input: 0 0% 14%;
     --ring: 142 72% 45%;
@@ -80,6 +86,12 @@
   .glow-red {
     box-shadow: 0 0 8px hsl(0 72% 50% / 0.3);
   }
+  .glow-blue {
+    box-shadow: 0 0 8px hsl(217 90% 60% / 0.3);
+  }
+  .glow-gold {
+    box-shadow: 0 0 8px hsl(45 90% 55% / 0.3);
+  }
 
   @keyframes cell-flash {
     0% { opacity: 1; }
@@ -100,6 +112,14 @@
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 

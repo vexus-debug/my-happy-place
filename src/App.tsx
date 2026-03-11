@@ -12,6 +12,9 @@ import RangeScanner from "./pages/RangeScanner.tsx";
 import CandlestickPatterns from "./pages/CandlestickPatterns.tsx";
 import ChartPatterns from "./pages/ChartPatterns.tsx";
 import MarketStructure from "./pages/MarketStructure.tsx";
+import Confluence from "./pages/Confluence.tsx";
+import TradePlanner from "./pages/TradePlanner.tsx";
+import MarketOverview from "./pages/MarketOverview.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -28,10 +31,13 @@ const App = () => (
               <AppLayout>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/confluence" element={<Confluence />} />
                   <Route path="/range-scanner" element={<RangeScanner />} />
                   <Route path="/candlestick-patterns" element={<CandlestickPatterns />} />
                   <Route path="/chart-patterns" element={<ChartPatterns />} />
                   <Route path="/market-structure" element={<MarketStructure />} />
+                  <Route path="/market-overview" element={<MarketOverview />} />
+                  <Route path="/trade-planner" element={<TradePlanner />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </AppLayout>

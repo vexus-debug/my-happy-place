@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import type { AssetTrend, Timeframe } from '@/types/scanner';
 import { ALL_TIMEFRAMES, TIMEFRAME_LABELS } from '@/types/scanner';
 import type { ConfirmedTrend, IndicatorDetail } from '@/lib/indicators';
+import { getSector, getSectorEmoji, type CryptoSector, ALL_SECTORS } from '@/lib/sectors';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Search, Star, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, ShieldCheck, ShieldAlert, Target, Gauge } from 'lucide-react';
+import { Search, Star, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Shield, ShieldCheck, ShieldAlert, Target, Gauge, BarChart3, ArrowUpDown } from 'lucide-react';
+import { ChartView } from '@/components/ChartView';
 
 interface ScannerMatrixProps {
   assets: AssetTrend[];
@@ -21,23 +23,31 @@ interface TrendEntry {
   sig: ConfirmedTrend;
 }
 
+type SortMode = 'confirmations' | 'probability' | 'volume' | 'change' | 'adx';
+
 export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist, isWatched }: ScannerMatrixProps) {
   const [search, setSearch] = useState('');
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [filterTf, setFilterTf] = useState<Timeframe | 'all'>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('confirmations');
+  const [filterSector, setFilterSector] = useState<CryptoSector | 'all'>('all');
+  const [filterDirection, setFilterDirection] = useState<'all' | 'bull' | 'bear'>('all');
+  const [chartSymbol, setChartSymbol] = useState<string | null>(null);
+  const [chartTf, setChartTf] = useState<Timeframe>('60');
 
-  // Flatten all assets × timeframes into individual trend entries, sorted strongest first
+  // Flatten all assets × timeframes into individual trend entries
   const entries = useMemo(() => {
     const result: TrendEntry[] = [];
 
     for (const asset of assets) {
       if (search && !asset.symbol.toLowerCase().includes(search.toLowerCase())) continue;
+      if (filterSector !== 'all' && getSector(asset.symbol) !== filterSector) continue;
 
       const timeframes = filterTf === 'all' ? ALL_TIMEFRAMES : [filterTf];
       for (const tf of timeframes) {
         const sig = asset.signals[tf] as ConfirmedTrend | undefined;
         if (sig && sig.direction) {
-          // Ensure confirmations/totalChecks have defaults for server-cached data
+          if (filterDirection !== 'all' && sig.direction !== filterDirection) continue;
           if (sig.confirmations === undefined) sig.confirmations = 0;
           if (sig.totalChecks === undefined) sig.totalChecks = 0;
           result.push({ asset, tf, sig });
@@ -45,18 +55,68 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
       }
     }
 
-    // Sort by confirmations desc, then by absolute score desc
+    // Sort
     result.sort((a, b) => {
-      const confDiff = b.sig.confirmations - a.sig.confirmations;
-      if (confDiff !== 0) return confDiff;
-      return Math.abs(b.sig.score) - Math.abs(a.sig.score);
+      switch (sortMode) {
+        case 'probability': return (b.sig.probability ?? 0) - (a.sig.probability ?? 0);
+        case 'volume': return b.sig.volumeRatio - a.sig.volumeRatio;
+        case 'change': return Math.abs(b.asset.change24h) - Math.abs(a.asset.change24h);
+        case 'adx': return b.sig.adx - a.sig.adx;
+        default: {
+          const confDiff = b.sig.confirmations - a.sig.confirmations;
+          if (confDiff !== 0) return confDiff;
+          return Math.abs(b.sig.score) - Math.abs(a.sig.score);
+        }
+      }
     });
 
     return result;
-  }, [assets, search, filterTf]);
+  }, [assets, search, filterTf, sortMode, filterSector, filterDirection]);
 
   const bullCount = entries.filter(e => e.sig.direction === 'bull').length;
   const bearCount = entries.length - bullCount;
+
+  // Chart overlay
+  if (chartSymbol) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="h-[55%]">
+          <ChartView
+            symbol={chartSymbol}
+            initialTimeframe={chartTf}
+            onClose={() => setChartSymbol(null)}
+          />
+        </div>
+        <div className="flex-1 overflow-hidden border-t border-border">
+          <ScrollArea className="h-full">
+            <div className="p-2 space-y-1.5">
+              {entries.slice(0, 30).map((entry, idx) => {
+                const key = `${entry.asset.symbol}-${entry.tf}`;
+                return (
+                  <TrendCard
+                    key={key}
+                    rank={idx + 1}
+                    entry={entry}
+                    expanded={expandedKey === key}
+                    onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
+                    watched={isWatched(entry.asset.symbol)}
+                    onWatch={() => onAddToWatchlist(entry.asset.symbol)}
+                    onChart={() => { setChartSymbol(entry.asset.symbol); setChartTf(entry.tf); }}
+                    otherSignals={
+                      Object.entries(entry.asset.signals)
+                        .filter(([t]) => t !== entry.tf)
+                        .map(([t, s]) => ({ tf: t as Timeframe, sig: s as ConfirmedTrend }))
+                        .filter(x => x.sig?.confirmations !== undefined)
+                    }
+                  />
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -74,26 +134,44 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
           </div>
         </div>
 
-        {/* Timeframe filter */}
+        {/* Filters row */}
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[9px] uppercase text-muted-foreground mr-1">TF:</span>
-          <button
-            onClick={() => setFilterTf('all')}
-            className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${
-              filterTf === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            ALL
-          </button>
+          {/* Direction filter */}
+          <button onClick={() => setFilterDirection('all')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
+          <button onClick={() => setFilterDirection('bull')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'bull' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>↑ BULL</button>
+          <button onClick={() => setFilterDirection('bear')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'bear' ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground hover:text-foreground'}`}>↓ BEAR</button>
+
+          <div className="w-px h-3 bg-border mx-0.5" />
+
+          {/* TF filter */}
+          <span className="text-[9px] uppercase text-muted-foreground">TF:</span>
+          <button onClick={() => setFilterTf('all')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterTf === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
           {ALL_TIMEFRAMES.map(tf => (
+            <button key={tf} onClick={() => setFilterTf(tf)} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterTf === tf ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{TIMEFRAME_LABELS[tf]}</button>
+          ))}
+        </div>
+
+        {/* Sector + Sort row */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <select
+            className="h-5 rounded bg-secondary px-1 text-[9px] text-foreground border-0 outline-none"
+            value={filterSector}
+            onChange={e => setFilterSector(e.target.value as any)}
+          >
+            <option value="all">All Sectors</option>
+            {ALL_SECTORS.map(s => <option key={s} value={s}>{getSectorEmoji(s)} {s}</option>)}
+          </select>
+
+          <div className="w-px h-3 bg-border mx-0.5" />
+
+          <ArrowUpDown className="h-2.5 w-2.5 text-muted-foreground" />
+          {(['confirmations', 'probability', 'volume', 'change', 'adx'] as SortMode[]).map(mode => (
             <button
-              key={tf}
-              onClick={() => setFilterTf(tf)}
-              className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${
-                filterTf === tf ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
+              key={mode}
+              onClick={() => setSortMode(mode)}
+              className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${sortMode === mode ? 'bg-accent/20 text-accent' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              {TIMEFRAME_LABELS[tf]}
+              {mode === 'confirmations' ? 'Conf' : mode === 'probability' ? 'Prob' : mode === 'volume' ? 'Vol' : mode === 'change' ? 'Chg' : 'ADX'}
             </button>
           ))}
         </div>
@@ -138,6 +216,7 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
                 onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
                 watched={isWatched(entry.asset.symbol)}
                 onWatch={() => onAddToWatchlist(entry.asset.symbol)}
+                onChart={() => { setChartSymbol(entry.asset.symbol); setChartTf(entry.tf); }}
                 otherSignals={
                   Object.entries(entry.asset.signals)
                     .filter(([t]) => t !== entry.tf)
@@ -159,7 +238,7 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
 }
 
 function TrendCard({
-  rank, entry, expanded, onToggle, watched, onWatch, otherSignals,
+  rank, entry, expanded, onToggle, watched, onWatch, onChart, otherSignals,
 }: {
   rank: number;
   entry: TrendEntry;
@@ -167,12 +246,14 @@ function TrendCard({
   onToggle: () => void;
   watched: boolean;
   onWatch: () => void;
+  onChart: () => void;
   otherSignals: { tf: Timeframe; sig: ConfirmedTrend }[];
 }) {
   const { asset, tf, sig } = entry;
   const isBull = sig.direction === 'bull';
   const changeColor = asset.change24h >= 0 ? 'trend-bull' : 'trend-bear';
   const ConfIcon = sig.strength === 'strong' ? ShieldCheck : sig.strength === 'moderate' ? Shield : ShieldAlert;
+  const sector = getSector(asset.symbol);
 
   return (
     <div
@@ -190,6 +271,7 @@ function TrendCard({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {isBull ? <TrendingUp className="h-3.5 w-3.5 trend-bull flex-shrink-0" /> : <TrendingDown className="h-3.5 w-3.5 trend-bear flex-shrink-0" />}
           <span className="text-xs font-bold truncate">{asset.symbol.replace('USDT', '')}</span>
+          <span className="text-[8px]">{getSectorEmoji(sector)}</span>
           <span className="rounded bg-secondary px-1 py-0.5 text-[9px] text-muted-foreground">{TIMEFRAME_LABELS[tf]}</span>
         </div>
 
@@ -209,6 +291,14 @@ function TrendCard({
             <ConfIcon className="h-2.5 w-2.5" />
             {sig.confirmations}/{sig.totalChecks}
           </div>
+          {/* Chart button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onChart(); }}
+            className="text-muted-foreground/40 hover:text-accent transition-colors"
+            title="Open chart"
+          >
+            <BarChart3 className="h-3 w-3" />
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onWatch(); }}
             className={`transition-colors ${watched ? 'text-accent' : 'text-muted-foreground/30 hover:text-muted-foreground'}`}
