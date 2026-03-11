@@ -36,7 +36,10 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
       const timeframes = filterTf === 'all' ? ALL_TIMEFRAMES : [filterTf];
       for (const tf of timeframes) {
         const sig = asset.signals[tf] as ConfirmedTrend | undefined;
-        if (sig && sig.confirmations !== undefined) {
+        if (sig && sig.direction) {
+          // Ensure confirmations/totalChecks have defaults for server-cached data
+          if (sig.confirmations === undefined) sig.confirmations = 0;
+          if (sig.totalChecks === undefined) sig.totalChecks = 0;
           result.push({ asset, tf, sig });
         }
       }
