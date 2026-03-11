@@ -990,11 +990,12 @@ async function runFullScan(supabase: any) {
   const now = new Date().toISOString();
   const updates = [
     { id: "trends", data: trendResults, scanned_at: now },
+    { id: "ranges", data: rangeResults, scanned_at: now },
     { id: "candlestick", data: candlestickResults, scanned_at: now },
     { id: "chart", data: chartResults, scanned_at: now },
     { id: "structure", data: structureResults, scanned_at: now },
     { id: "alerts", data: alertResults.slice(0, 200), scanned_at: now },
-    { id: "metadata", data: { duration: Date.now() - startTime, symbolCount: symbols.length, trendCount: trendResults.filter((t: any) => Object.keys(t.signals).length > 0).length, patternCount: candlestickResults.length + chartResults.length + structureResults.length }, scanned_at: now },
+    { id: "metadata", data: { duration: Date.now() - startTime, symbolCount: symbols.length, trendCount: trendResults.filter((t: any) => Object.keys(t.signals).length > 0).length, rangeCount: rangeResults.length, patternCount: candlestickResults.length + chartResults.length + structureResults.length }, scanned_at: now },
   ];
 
   for (const u of updates) {
