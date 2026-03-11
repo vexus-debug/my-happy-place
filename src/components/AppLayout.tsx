@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { NavLink } from '@/components/NavLink';
-import { BarChart3, ChartCandlestick, LayoutGrid, Network, Layers, Zap, Calculator, Activity } from 'lucide-react';
+import { BarChart3, ChartCandlestick, LayoutGrid, Network, Layers, Zap, Calculator, Activity, ArrowUpDown, Grid3X3, Box, Flame } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const NAV_ITEMS = [
@@ -11,6 +11,10 @@ const NAV_ITEMS = [
   { to: '/chart-patterns', label: 'Charts', icon: LayoutGrid },
   { to: '/market-structure', label: 'SMC', icon: Network },
   { to: '/market-overview', label: 'Market', icon: Activity },
+  { to: '/mtf', label: 'MTF', icon: ArrowUpDown },
+  { to: '/heatmap', label: 'Heatmap', icon: Grid3X3 },
+  { to: '/supply-demand', label: 'S/D', icon: Box },
+  { to: '/volatility', label: 'Vol', icon: Flame },
   { to: '/trade-planner', label: 'Trade', icon: Calculator },
 ];
 
