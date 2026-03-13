@@ -375,7 +375,6 @@ function calculateTrendDuration(
   const price = candles[candles.length - 1].close;
   const isBull = direction === "bull";
 
-  // Walk backwards to find where EMA9 crossed EMA21
   let trendStartIdx = candles.length - 1;
   for (let i = candles.length - 2; i >= 0; i--) {
     if (i >= ema9.length || i >= ema21.length) break;
@@ -389,7 +388,6 @@ function calculateTrendDuration(
   const startTime = candles[trendStartIdx]?.time ?? 0;
   const trendMove = ((price - startPrice) / startPrice) * 100;
 
-  // Find extreme for Fibonacci
   let extreme = startPrice;
   for (let i = trendStartIdx; i < candles.length; i++) {
     if (isBull) { if (candles[i].high > extreme) extreme = candles[i].high; }
@@ -404,7 +402,30 @@ function calculateTrendDuration(
   const fibExtend1618 = startPrice + moveRange * 1.618;
   const atrStop = isBull ? price - 2 * atr : price + 2 * atr;
 
-  // Exhaustion analysis
+  // Find invalidation level
+  let invalidationLevel = startPrice;
+  let invalidationDescription = "";
+  const trendCandles = candles.slice(Math.max(0, trendStartIdx - 2));
+  const sHighs: { price: number }[] = [], sLows: { price: number }[] = [];
+  for (let i = 2; i < trendCandles.length - 2; i++) {
+    const c = trendCandles[i];
+    if (c.high > trendCandles[i-1].high && c.high > trendCandles[i-2].high && c.high > trendCandles[i+1].high && c.high > trendCandles[i+2].high) sHighs.push({ price: c.high });
+    if (c.low < trendCandles[i-1].low && c.low < trendCandles[i-2].low && c.low < trendCandles[i+1].low && c.low < trendCandles[i+2].low) sLows.push({ price: c.low });
+  }
+  if (isBull) {
+    if (sLows.length >= 1) {
+      invalidationLevel = sLows[sLows.length - 1].price;
+      invalidationDescription = sLows.length >= 2 && sLows[sLows.length - 1].price > sLows[sLows.length - 2].price
+        ? "Most recent Higher Low — break below invalidates uptrend" : "Most recent swing low — break below signals reversal";
+    } else { invalidationDescription = "Trend start price — no swing low formed yet"; }
+  } else {
+    if (sHighs.length >= 1) {
+      invalidationLevel = sHighs[sHighs.length - 1].price;
+      invalidationDescription = sHighs.length >= 2 && sHighs[sHighs.length - 1].price < sHighs[sHighs.length - 2].price
+        ? "Most recent Lower High — break above invalidates downtrend" : "Most recent swing high — break above signals reversal";
+    } else { invalidationDescription = "Trend start price — no swing high formed yet"; }
+  }
+
   const exhaustionSignals: string[] = [];
   if (isBull && rsi > 75) exhaustionSignals.push(`RSI overbought (${rsi.toFixed(0)})`);
   if (!isBull && rsi < 25) exhaustionSignals.push(`RSI oversold (${rsi.toFixed(0)})`);
@@ -420,10 +441,27 @@ function calculateTrendDuration(
   if (exhaustionSignals.length >= 3) exhaustionRisk = "high";
   else if (exhaustionSignals.length >= 1) exhaustionRisk = "medium";
 
-  return { bars, startPrice, startTime, currentPrice: price, trendMove, fibRetrace382, fibRetrace500, fibRetrace618, fibExtend1272, fibExtend1618, exhaustionRisk, exhaustionSignals, atrStop };
+  return { bars, startPrice, startTime, currentPrice: price, trendMove, fibRetrace382, fibRetrace500, fibRetrace618, fibExtend1272, fibExtend1618, exhaustionRisk, exhaustionSignals, atrStop, invalidationLevel, invalidationDescription };
 }
 
-// ─── Trend Analysis (matches client-side analyzeTrend) ──────────────
+// ─── Support & Resistance ───────────────────────────────────────────
+function findSupportResistance(candles: Candle[], emas: { e9: number; e21: number; e50: number; e200: number }) {
+  const price = candles[candles.length - 1].close;
+  const lookback = Math.min(candles.length, 100), recent = candles.slice(-lookback);
+  const levels: number[] = [];
+  for (let i = 2; i < recent.length - 2; i++) {
+    if (recent[i].high > recent[i-1].high && recent[i].high > recent[i-2].high && recent[i].high > recent[i+1].high && recent[i].high > recent[i+2].high) levels.push(recent[i].high);
+    if (recent[i].low < recent[i-1].low && recent[i].low < recent[i-2].low && recent[i].low < recent[i+1].low && recent[i].low < recent[i+2].low) levels.push(recent[i].low);
+  }
+  levels.push(emas.e9, emas.e21, emas.e50, emas.e200);
+  const supports = levels.filter(l => l < price).sort((a, b) => b - a);
+  const resistances = levels.filter(l => l > price).sort((a, b) => a - b);
+  return {
+    nearestSupport: supports[0] ?? price * 0.95, nearestResistance: resistances[0] ?? price * 1.05,
+    supportDistance: ((price - (supports[0] ?? price * 0.95)) / price) * 100,
+    resistanceDistance: (((resistances[0] ?? price * 1.05) - price) / price) * 100,
+  };
+}
 function analyzePriceStructure(candles: Candle[], lookback = 30): "bull" | "bear" | "neutral" {
   const r = candles.slice(-lookback);
   if (r.length < 8) return "neutral";
