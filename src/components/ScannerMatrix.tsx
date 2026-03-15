@@ -147,13 +147,21 @@ export function ScannerMatrix({ assets, scanning, scanProgress, onAddToWatchlist
 
         {/* Filters row */}
         <div className="flex items-center gap-1 flex-wrap">
+          {/* Accuracy filter */}
+          <span className="text-[9px] uppercase text-muted-foreground font-medium">Accuracy:</span>
+          <button onClick={() => setAccuracyMode('all')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${accuracyMode === 'all' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
+          <button onClick={() => setAccuracyMode('high')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${accuracyMode === 'high' ? 'bg-primary/20 text-primary font-bold' : 'text-muted-foreground hover:text-foreground'}`}>⚡ HIGH</button>
+          <button onClick={() => setAccuracyMode('ultra')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${accuracyMode === 'ultra' ? 'bg-accent/20 text-accent font-bold' : 'text-muted-foreground hover:text-foreground'}`}>🎯 ULTRA</button>
+
+          <div className="w-px h-3 bg-border mx-0.5" />
+
           {/* Direction filter */}
           <button onClick={() => setFilterDirection('all')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
           <button onClick={() => setFilterDirection('bull')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'bull' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}>↑ BULL</button>
           <button onClick={() => setFilterDirection('bear')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterDirection === 'bear' ? 'bg-destructive/20 text-destructive' : 'text-muted-foreground hover:text-foreground'}`}>↓ BEAR</button>
+        </div>
 
-          <div className="w-px h-3 bg-border mx-0.5" />
-
+        <div className="flex items-center gap-1 flex-wrap">
           {/* TF filter */}
           <span className="text-[9px] uppercase text-muted-foreground">TF:</span>
           <button onClick={() => setFilterTf('all')} className={`rounded px-1.5 py-0.5 text-[9px] transition-colors ${filterTf === 'all' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
