@@ -4,7 +4,7 @@ import { useLocation, Outlet } from 'react-router-dom';
 import {
   BarChart3, ChartCandlestick, LayoutGrid, Network, Layers, Zap, Calculator,
   Activity, ArrowUpDown, Grid3X3, Box, Flame, DollarSign, GitBranch, PieChart,
-  MoreHorizontal, X, TrendingUp, Compass, Wrench,
+  MoreHorizontal, X, TrendingUp, Compass, Wrench, RotateCcw,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ const NAV_GROUPS = [
     icon: TrendingUp,
     items: [
       { to: '/', label: 'Trend Scanner', icon: BarChart3 },
+      { to: '/reversals', label: 'Reversals', icon: RotateCcw },
       { to: '/indicator-scanner', label: 'Indicators', icon: Activity },
       { to: '/confluence', label: 'Confluence', icon: Zap },
       { to: '/range-scanner', label: 'Range', icon: Layers },
