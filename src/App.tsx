@@ -25,6 +25,7 @@ import CorrelationMatrix from "./pages/CorrelationMatrix.tsx";
 import SectorRotation from "./pages/SectorRotation.tsx";
 import IndicatorScanner from "./pages/IndicatorScanner.tsx";
 import ReversalScanner from "./pages/ReversalScanner.tsx";
+import MomentumScanner from "./pages/MomentumScanner.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
