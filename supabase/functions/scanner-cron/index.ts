@@ -1629,7 +1629,7 @@ async function runFullScan(supabase: any) {
     const opposingScore = direction === "bull" ? bearScore : bullScore;
     const conflictPenalty = Math.min(15, opposingScore * 0.5);
     const score = Math.min(100, Math.max(0, rawScore + categoryBonus - conflictPenalty));
-    if (categoryCount < 2 || score < 30) return null;
+    if (categoryCount < 1 || score < 30) return null;
     const invalidation = direction === "bull" ? price - 2 * atr : price + 2 * atr;
     const target = direction === "bull" ? price + 3 * atr : price - 3 * atr;
     return { direction, score, confirmations: dominantConfs, categoryCount, invalidation, target };
