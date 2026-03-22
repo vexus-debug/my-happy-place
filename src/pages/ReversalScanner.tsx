@@ -32,7 +32,7 @@ interface ReversalSignal {
   riskReward: number;
 }
 
-type GradeFilter = 'all' | 'S' | 'A' | 'B';
+type GradeFilter = 'all' | 'S' | 'A' | 'B' | 'C';
 type DirFilter = 'all' | 'bull' | 'bear';
 type TfFilter = 'all' | '15' | '60' | '240' | 'D' | 'W';
 
@@ -58,6 +58,7 @@ const GRADE_STYLES: Record<string, { bg: string; text: string; border: string }>
   S: { bg: 'hsl(48 96% 53% / 0.15)', text: 'hsl(48 96% 53%)', border: 'hsl(48 96% 53% / 0.4)' },
   A: { bg: 'hsl(142 72% 45% / 0.15)', text: 'hsl(142 72% 45%)', border: 'hsl(142 72% 45% / 0.4)' },
   B: { bg: 'hsl(217 90% 60% / 0.15)', text: 'hsl(217 90% 60%)', border: 'hsl(217 90% 60% / 0.4)' },
+  C: { bg: 'hsl(0 0% 50% / 0.15)', text: 'hsl(0 0% 60%)', border: 'hsl(0 0% 50% / 0.4)' },
 };
 
 export default function ReversalScanner() {
@@ -207,7 +208,7 @@ export default function ReversalScanner() {
           <div className="h-4 w-px bg-border" />
           {/* Grade */}
           <div className="flex items-center gap-1">
-            {(['all', 'S', 'A', 'B'] as GradeFilter[]).map(g => (
+            {(['all', 'S', 'A', 'B', 'C'] as GradeFilter[]).map(g => (
               <button
                 key={g}
                 onClick={() => setGradeFilter(g)}
